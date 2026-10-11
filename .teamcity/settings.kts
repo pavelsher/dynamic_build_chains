@@ -1,4 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 /*
@@ -46,6 +47,14 @@ object Generator : BuildType({
         script {
             id = "simpleRunner_1"
             scriptContent = """echo "GeneratorMode" > .teamcity/GeneratorMode"""
+        }
+        maven {
+            id = "Maven2"
+            goals = "clean teamcity-configs:generate"
+            pomLocation = ".teamcity/pom.xml"
+            runnerArgs = "-DserverContext=dsl_context.zip"
+            workingDir = ".teamcity"
+            jdkHome = "%teamcity.agent.jvm.java.home%"
         }
     }
 })
