@@ -86,13 +86,16 @@ object MainCheck : BuildType({
 
     if (Util.isGeneratorMode()) {
         dependencies {
-            snapshot(RunTests) {}
+            for (i in 1..10) {
+                snapshot(RunTests("Batch$i")) {}
+            }
         }
     }
 })
 
-object RunTests: BuildType({
-    name = "RunTests"
+class RunTests(name: String): BuildType({
+    this.name = name
+    this.id(name)
 
     vcs {
         DslContext.settingsRoot
@@ -101,7 +104,7 @@ object RunTests: BuildType({
     steps {
         script {
             scriptContent = """
-                echo "Running tests"
+                echo "Running tests batch $name"
                 echo "##teamcity[testStarted name='test0']"
                 echo "##teamcity[testFinished name='test0']"
                 echo "##teamcity[testStarted name='test1']"
