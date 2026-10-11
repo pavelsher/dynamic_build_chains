@@ -27,7 +27,16 @@ version = "2026.1"
 project {
 
     buildType(MainCheck)
+    buildType(Generator)
 }
+
+object Generator : BuildType({
+    name = "Generator"
+
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+})
 
 object MainCheck : BuildType({
     name = "MainCheck"
