@@ -29,7 +29,7 @@ class RunTests(name: String): BuildType({
 })
 
 fun createBatches(num: Int): List<RunTests> {
-    return (0 until num).map { RunTests("Batch $it") }
+    return (0 until num).map { RunTests("TestsBatch$it") }
 }
 
 fun applyBatches(project: Project) {
