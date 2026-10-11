@@ -10,7 +10,7 @@ class RunTests(name: String): BuildType({
     this.id(name)
 
     vcs {
-        DslContext.settingsRoot
+        root(DslContext.settingsRoot)
     }
 
     steps {
