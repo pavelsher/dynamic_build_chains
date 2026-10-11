@@ -35,6 +35,8 @@ project {
 object Generator : BuildType({
     name = "Generator"
 
+    artifactRules = ".teamcity/target/generated-configs/** => .teamcity/generated_settings.zip"
+
     vcs {
         root(DslContext.settingsRoot)
     }
