@@ -44,7 +44,7 @@ object Generator : BuildType({
     steps {
         script {
             id = "simpleRunner"
-            scriptContent = """curl -u admin:1 "http://localhost:8111/bs/app/dsl-context?projectExtId=DynamicChains" -o .teamcity/dsl_context.zip"""
+            scriptContent = """curl -u admin:1 "http://localhost:8111/bs/app/dsl-context?projectExtId=DynamicBuildChains" -o .teamcity/dsl_context.zip"""
         }
         script {
             id = "simpleRunner_1"
