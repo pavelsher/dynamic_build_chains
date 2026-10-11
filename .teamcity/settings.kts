@@ -1,6 +1,13 @@
-import jetbrains.buildServer.configs.kotlin.*
+import dynamic.Util
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.project
+import jetbrains.buildServer.configs.kotlin.version
+import java.nio.file.Files
+import java.nio.file.Path
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -30,6 +37,10 @@ project {
 
     buildType(MainCheck)
     buildType(Generator)
+
+    if (Util.isGeneratorMode()) {
+        buildType(RunTests)
+    }
 }
 
 object Generator : BuildType({
@@ -70,5 +81,27 @@ object MainCheck : BuildType({
 
     vcs {
         root(DslContext.settingsRoot)
+    }
+
+    if (Util.isGeneratorMode()) {
+        dependencies {
+            snapshot(RunTests) {}
+        }
+    }
+})
+
+object RunTests: BuildType({
+    name = "RunTests"
+
+    vcs {
+        DslContext.settingsRoot
+    }
+
+    steps {
+        script {
+            scriptContent = """
+                echo "Running tests"
+            """.trimIndent()
+        }
     }
 })
