@@ -1,4 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -35,6 +36,13 @@ object Generator : BuildType({
 
     vcs {
         root(DslContext.settingsRoot)
+    }
+
+    steps {
+        script {
+            id = "simpleRunner"
+            scriptContent = """curl -u admin:1 "http://localhost:8111/bs/app/dsl-context?projectExtId=DynamicChains" -o dsl_context.zip"""
+        }
     }
 })
 
