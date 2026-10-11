@@ -41,6 +41,10 @@ object Generator : BuildType({
 object MainCheck : BuildType({
     name = "MainCheck"
 
+    params {
+        param("teamcity.dynamicBuildChain.generatorBuildTypeId", "DynamicBuildChains_Generator")
+    }
+
     vcs {
         root(DslContext.settingsRoot)
     }
