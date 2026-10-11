@@ -74,6 +74,7 @@ object Generator : BuildType({
 
 object MainCheck : BuildType({
     name = "MainCheck"
+    type = Type.COMPOSITE
 
     params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", "DynamicBuildChains_Generator")
@@ -101,6 +102,12 @@ object RunTests: BuildType({
         script {
             scriptContent = """
                 echo "Running tests"
+                echo "##teamcity[testStarted name='test0']"
+                echo "##teamcity[testFinished name='test0']"
+                echo "##teamcity[testStarted name='test1']"
+                echo "##teamcity[testFinished name='test1']"
+                echo "##teamcity[testStarted name='test2']"
+                echo "##teamcity[testFinished name='test2']"
             """.trimIndent()
         }
     }
