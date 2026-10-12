@@ -8,7 +8,7 @@ object MainCheck : BuildType({
     type = Type.COMPOSITE
 
     params {
-        param("teamcity.dynamicBuildChain.generatorBuildTypeId", "DynamicBuildChains_Generator")
+        param("teamcity.dynamicBuildChain.generatorBuildTypeId", Generator.id!!.value)
     }
 
     vcs {
