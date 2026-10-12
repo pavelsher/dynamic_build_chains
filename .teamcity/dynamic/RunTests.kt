@@ -33,7 +33,7 @@ fun createBatches(num: Int): List<RunTests> {
 }
 
 fun applyBatches(project: Project) {
-    val batches = createBatches(10)
+    val batches = createBatches(2)
     batches.forEach { project.buildType(it) }
     MainCheck.dependencies {
         batches.forEach { snapshot(it) {} }
