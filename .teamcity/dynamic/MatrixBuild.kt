@@ -9,8 +9,8 @@ class MatrixBuild: BuildType({
     features {
         matrix {
             param("database.image", listOf(
-                value("postgres:16rc1"),
-                value("postgres:13.12")
+                value("mysql"),
+                value("psql")
             ))
         }
     }

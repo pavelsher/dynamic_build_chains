@@ -33,7 +33,7 @@ fun createBatches(num: Int): List<RunTests> {
 }
 
 fun applyBatches(project: Project) {
-    val batches = createBatches(2)
+    val batches = createBatches(3)
     batches.forEach { project.buildType(it) }
     MainCheck.dependencies {
         batches.forEach { snapshot(it) {} }
@@ -52,6 +52,10 @@ fun applyPipeline(project: Project) {
     val pipeline = project.pipeline {
         id("Pipeline")
         name = "Test Pipeline"
+
+        repositories {
+            repository(DslContext.settingsRoot, true)
+        }
 
         job {
             id("Job")
