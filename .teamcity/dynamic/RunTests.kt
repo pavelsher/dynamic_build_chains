@@ -39,3 +39,11 @@ fun applyBatches(project: Project) {
         batches.forEach { snapshot(it) {} }
     }
 }
+
+fun applyMatrixBuild(project: Project) {
+    val matrix = MatrixBuild()
+    project.buildType(matrix)
+    MainCheck.dependencies {
+        snapshot(matrix) {}
+    }
+}
