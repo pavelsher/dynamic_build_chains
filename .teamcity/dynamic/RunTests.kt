@@ -33,9 +33,41 @@ fun createBatches(num: Int): List<RunTests> {
 }
 
 fun applyBatches(project: Project) {
-    val batches = createBatches(10)
+    val batches = createBatches(2)
     batches.forEach { project.buildType(it) }
     MainCheck.dependencies {
         batches.forEach { snapshot(it) {} }
+    }
+}
+
+fun applyMatrixBuild(project: Project) {
+    val matrix = MatrixBuild()
+    project.buildType(matrix)
+    MainCheck.dependencies {
+        snapshot(matrix) {}
+    }
+}
+
+fun applyPipeline(project: Project) {
+    val pipeline = project.pipeline {
+        id("Pipeline")
+        name = "Test Pipeline"
+
+        job {
+            id("Job")
+            name = "Test Job"
+
+            steps {
+                script {
+                    scriptContent = """
+                        echo "Hello pipeline!"
+                    """.trimIndent()
+                }
+            }
+        }
+    }
+
+    MainCheck.dependencies {
+        snapshot(pipeline) {}
     }
 }
