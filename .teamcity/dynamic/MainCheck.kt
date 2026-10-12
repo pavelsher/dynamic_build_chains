@@ -9,9 +9,11 @@ object MainCheck : BuildType({
 
     params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", Generator.id!!.value)
+        param("override.dep.*!.p1", "v1")
     }
 
     vcs {
         root(DslContext.settingsRoot)
     }
+
 })
