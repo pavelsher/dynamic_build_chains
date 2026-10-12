@@ -50,7 +50,13 @@ fun applyMatrixBuild(project: Project) {
 
 fun applyPipeline(project: Project) {
     val pipeline = project.pipeline {
+        id("Pipeline")
+        name = "Test Pipeline"
+
         job {
+            id("Job")
+            name = "Test Job"
+
             steps {
                 script {
                     scriptContent = """
