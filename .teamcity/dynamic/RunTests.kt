@@ -47,3 +47,21 @@ fun applyMatrixBuild(project: Project) {
         snapshot(matrix) {}
     }
 }
+
+fun applyPipeline(project: Project) {
+    val pipeline = project.pipeline {
+        job {
+            steps {
+                script {
+                    scriptContent = """
+                        echo "Hello pipeline!"
+                    """.trimIndent()
+                }
+            }
+        }
+    }
+
+    MainCheck.dependencies {
+        snapshot(pipeline) {}
+    }
+}

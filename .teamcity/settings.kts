@@ -3,6 +3,7 @@ import dynamic.MainCheck
 import dynamic.Util
 import dynamic.applyBatches
 import dynamic.applyMatrixBuild
+import dynamic.applyPipeline
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
 
@@ -38,5 +39,6 @@ project {
     if (Util.isGeneratorMode()) {
         applyBatches(this)
         applyMatrixBuild(this)
+        applyPipeline(this)
     }
 }
