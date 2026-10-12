@@ -54,16 +54,12 @@ fun applyPipeline(project: Project) {
         name = "Test Pipeline"
 
         repositories {
-            repository(DslContext.settingsRoot)
+            repository(DslContext.settingsRoot, enabledByDefault = true)
         }
 
         job {
             id("Job")
             name = "Test Job"
-
-            repositories {
-                repository(DslContext.settingsRoot, true)
-            }
 
             steps {
                 script {
