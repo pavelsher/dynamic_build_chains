@@ -58,16 +58,37 @@ fun applyPipeline(project: Project) {
         }
 
         job {
-            id("Job")
-            name = "Test Job"
+            id("Compile")
+            name = "Compile"
 
             steps {
                 script {
                     scriptContent = """
-                        echo "Hello pipeline!"
+                        echo "Compiling"
                     """.trimIndent()
                 }
             }
+        }
+
+        job {
+            id("RunTests")
+            name = "Run Tests"
+
+            steps {
+                script {
+                    scriptContent = """
+                        echo "running tests"
+                        echo "##teamcity[testStarted name='pipeline.test0']"
+                        echo "##teamcity[testFinished name='pipeline.test0']"
+                        echo "##teamcity[testStarted name='pipeline.test1']"
+                        echo "##teamcity[testFinished name='pipeline.test1']"
+                        echo "##teamcity[testStarted name='pipeline.test2']"
+                        echo "##teamcity[testFinished name='pipeline.test2']"
+                    """.trimIndent()
+                }
+            }
+
+            dependency("Compile") {}
         }
     }
 
