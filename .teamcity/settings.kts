@@ -37,7 +37,6 @@ project {
     buildType(Generator)
 
     if (Util.isGeneratorMode()) {
-        applyBatches(this)
         applyMatrixBuild(this)
         applyPipeline(this)
     }
