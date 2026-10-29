@@ -11,9 +11,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
 import java.util.LinkedList
 
-open class DynamicBuildChain(val project: Project) : BuildType()
+open class DynamicCompositeBuildType(val project: Project) : BuildType() {
+    // directory inside the versioned settings repository where the Kotlin DSL scripts are located
+    var settingsDir: String = ".teamcity"
+}
 
-fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
+fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Unit) {
     val chainId = id.toString()
     val chainIdContextParameter = "generate${chainId}"
 
@@ -53,7 +56,7 @@ fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
     }
 }
 
-private fun DynamicBuildChain.findRegisteredObjects(): MutableSet<IdOwner> {
+private fun DynamicCompositeBuildType.findRegisteredObjects(): MutableSet<IdOwner> {
     val registeredObjects = mutableSetOf<IdOwner>()
     val projectsQueue = LinkedList<Project>()
     projectsQueue.add(project)
@@ -67,26 +70,26 @@ private fun DynamicBuildChain.findRegisteredObjects(): MutableSet<IdOwner> {
     return registeredObjects
 }
 
-fun Project.dynamicCompositeBuildType(init: DynamicBuildChain.() -> Unit): DynamicBuildChain {
-    val dynamicBuildChain = DynamicBuildChain(this)
-    dynamicBuildChain.init()
-    dynamicBuildChain.type = BuildTypeSettings.Type.COMPOSITE
+fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit): DynamicCompositeBuildType {
+    val dynamicCompositeBuildType = DynamicCompositeBuildType(this)
+    dynamicCompositeBuildType.init()
+    dynamicCompositeBuildType.type = BuildTypeSettings.Type.COMPOSITE
 
-    val generatorId = dynamicBuildChain.id.toString() + "Generator"
-    val chainId = dynamicBuildChain.id.toString()
+    val generatorId = dynamicCompositeBuildType.id.toString() + "Generator"
+    val chainId = dynamicCompositeBuildType.id.toString()
     val chainIdContextParameter = "generate${chainId}"
-    dynamicBuildChain.params {
+    dynamicCompositeBuildType.params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
 
-    buildType(dynamicBuildChain)
+    buildType(dynamicCompositeBuildType)
 
     // create generator build type
     buildType {
         id = AbsoluteId(generatorId)
-        name = dynamicBuildChain.name + " Generator"
+        name = dynamicCompositeBuildType.name + " Generator"
 
-        artifactRules = ".teamcity/target/generated-configs/** => .teamcity/generated_settings.zip"
+        artifactRules = dynamicCompositeBuildType.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
 
         vcs {
             root(DslContext.settingsRoot)
@@ -95,19 +98,24 @@ fun Project.dynamicCompositeBuildType(init: DynamicBuildChain.() -> Unit): Dynam
         steps {
             maven {
                 goals = "clean teamcity-configs:generate"
-                pomLocation = ".teamcity/pom.xml"
+                pomLocation = dynamicCompositeBuildType.settingsDirPath("pom.xml")
                 runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} " +
                         "-Dcontext.projectId=${DslContext.projectId} " +
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
                         "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
                         "-DenableSandbox=false " +
                         "-Dcontext.parameters.${chainIdContextParameter}=true"
-                workingDir = ".teamcity"
+                workingDir = dynamicCompositeBuildType.settingsDirPath("")
                 jdkHome = "%teamcity.agent.jvm.java.home%"
             }
         }
     }
 
-    return dynamicBuildChain
+    return dynamicCompositeBuildType
 }
 
+private fun DynamicCompositeBuildType.settingsDirPath(relPath: String): String {
+    if (relPath.isEmpty() || settingsDir.isEmpty()) return relPath
+    if (settingsDir.endsWith("/")) return settingsDir + relPath
+    return "$settingsDir/$relPath"
+}

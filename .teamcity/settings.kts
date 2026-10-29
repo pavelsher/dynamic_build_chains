@@ -48,6 +48,7 @@ project {
 
         name = "Main Check"
         description = "Runs the main check"
+        settingsDir = ".teamcity"
 
         vcs {
             root(DslContext.settingsRoot)
