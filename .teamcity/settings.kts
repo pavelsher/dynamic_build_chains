@@ -33,6 +33,14 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
+
+    subProject {
+        id("Matrix")
+        name = "Matrix"
+
+        buildType(MatrixBuild)
+    }
+
     dynamicCompositeBuildType {
         id("MainCheck")
 
@@ -45,7 +53,7 @@ project {
     }.whenTriggered {
         createBatches(5).forEach { snapshot(it) {} }
 
-        snapshot(MatrixBuild()) {}
+        snapshot(MatrixBuild) {}
 
         snapshot(Pipeline {
             id("Pipeline")

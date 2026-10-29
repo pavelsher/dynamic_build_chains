@@ -3,7 +3,7 @@ package dynamic
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.matrix
 
-class MatrixBuild: BuildType({
+object MatrixBuild: BuildType({
     name = "Matrix Build"
 
     features {
