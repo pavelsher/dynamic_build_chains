@@ -15,19 +15,16 @@ object Generator : BuildType({
     }
 
     steps {
-        script {
-            id = "simpleRunner"
-            scriptContent = """curl -u admin:1 "${DslContext.serverUrl}/app/dsl-context?projectExtId=${DslContext.projectId}" -o .teamcity/dsl_context.zip"""
-        }
-        script {
-            id = "simpleRunner_1"
-            scriptContent = """echo "GeneratorMode" > .teamcity/GeneratorMode"""
-        }
         maven {
             id = "Maven2"
             goals = "clean teamcity-configs:generate"
             pomLocation = ".teamcity/pom.xml"
-            runnerArgs = "-DserverContext=dsl_context.zip"
+            runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} "
+                    "-Dcontext.projectId=${DslContext.projectId} " +
+                    "-Dcontext.projectName=${DslContext.projectName} "
+                    "-Dcontext.settingsRootId=${DslContext.settingsRootId} "
+                    "-DenableSandbox=false " +
+                    "-Dcontext.parameters.generateMainCheckPipeline=true"
             workingDir = ".teamcity"
             jdkHome = "%teamcity.agent.jvm.java.home%"
         }
