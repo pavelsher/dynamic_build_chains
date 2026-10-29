@@ -1,9 +1,8 @@
 import dynamic.Generator
 import dynamic.MainCheck
-import dynamic.Util
-import dynamic.applyBatches
 import dynamic.applyMatrixBuild
 import dynamic.applyPipeline
+import jetbrains.buildServer.configs.kotlin.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
@@ -37,7 +36,8 @@ project {
     buildType(MainCheck)
     buildType(Generator)
 
-    DslContext.hasParameter("generateMainCheckPipeline").let {
+    if (DslContext.hasParameter("generateMainCheckPipeline")) {
+        DslContext.parentProjectId = AbsoluteId("")
         applyMatrixBuild(this)
         applyPipeline(this)
     }
