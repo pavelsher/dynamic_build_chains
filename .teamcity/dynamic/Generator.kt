@@ -21,7 +21,7 @@ object Generator : BuildType({
             pomLocation = ".teamcity/pom.xml"
             runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} " +
                     "-Dcontext.projectId=${DslContext.projectId} " +
-                    "-Dcontext.projectName=${DslContext.projectName} " +
+                    "\"-Dcontext.projectName=${DslContext.projectName}\" " +
                     "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
                     "-DenableSandbox=false " +
                     "-Dcontext.parameters.generateMainCheckPipeline=true"
