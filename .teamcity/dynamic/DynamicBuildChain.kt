@@ -5,8 +5,10 @@ import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.Dependencies
 import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.IdOwner
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
+import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
 import java.util.LinkedList
 
 open class DynamicBuildChain(val project: Project) : BuildType()
@@ -21,18 +23,25 @@ fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
         }
 
         // register all the dependencies in the project
-        val visited = mutableSetOf<BuildType>()
-        val queue = LinkedList<BuildType>()
+        val visited = mutableSetOf<IdOwner>()
+        val queue = LinkedList<IdOwner>()
         queue.add(this)
 
         while (!queue.isEmpty()) {
             val next = queue.pop()
             if (visited.add(next)) {
-                next.dependencies.items.forEach { dependency ->
-                    val depBuildType = dependency.buildTypeId
-                    if (depBuildType is BuildType) {
-                        this.project.buildType(depBuildType)
-                        queue.add(depBuildType)
+                val dependencies = when (next) {
+                    is BuildType -> next.dependencies
+                    is Pipeline -> next.dependencies
+                    else -> error("Unsupported type: ${next::class}")
+                }
+
+                dependencies.items.forEach { dependency ->
+                    val dep = dependency.buildTypeId
+                    queue.add(dep)
+                    when (dep) {
+                        is BuildType -> this.project.buildType(dep)
+                        is Pipeline -> this.project.pipeline(dep)
                     }
                 }
             }

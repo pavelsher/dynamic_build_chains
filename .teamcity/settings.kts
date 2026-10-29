@@ -3,6 +3,8 @@ import dynamic.createBatches
 import dynamic.dynamicCompositeBuildType
 import dynamic.whenTriggered
 import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
 
@@ -42,6 +44,50 @@ project {
         }
     }.whenTriggered {
         createBatches(5).forEach { snapshot(it) {} }
+
         snapshot(MatrixBuild()) {}
+
+        snapshot(Pipeline {
+            id("Pipeline")
+            name = "Test Pipeline"
+
+            repositories {
+                repository(DslContext.settingsRoot, enabledByDefault = true)
+            }
+
+            job {
+                id("Compile")
+                name = "Compile"
+
+                steps {
+                    script {
+                        scriptContent = """
+                        echo "Compiling"
+                    """.trimIndent()
+                    }
+                }
+            }
+
+            job {
+                id("RunTests")
+                name = "Run Tests"
+
+                steps {
+                    script {
+                        scriptContent = """
+                        echo "running tests"
+                        echo "##teamcity[testStarted name='pipeline.test0']"
+                        echo "##teamcity[testFinished name='pipeline.test0']"
+                        echo "##teamcity[testStarted name='pipeline.test1']"
+                        echo "##teamcity[testFinished name='pipeline.test1']"
+                        echo "##teamcity[testStarted name='pipeline.test2']"
+                        echo "##teamcity[testFinished name='pipeline.test2']"
+                    """.trimIndent()
+                    }
+                }
+
+                dependency("Compile") {}
+            }
+        }) {}
     }
 }
