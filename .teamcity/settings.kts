@@ -1,8 +1,12 @@
 import dynamic.Generator
 import dynamic.MainCheck
+import dynamic.MatrixBuild
 import dynamic.applyBatches
 import dynamic.applyMatrixBuild
 import dynamic.applyPipeline
+import dynamic.createBatches
+import dynamic.dynamicBuildChain
+import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
@@ -32,13 +36,13 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
+    dynamicBuildChain({
+        id("MainCheck")
 
-    buildType(MainCheck)
-    buildType(Generator)
-
-    if (DslContext.hasParameter("generateMainCheckPipeline")) {
-        applyBatches(this)
-        applyMatrixBuild(this)
-        applyPipeline(this)
+        name = "Main Check"
+        description = "Runs the main check"
+    }) {
+        createBatches(5).forEach { snapshot(it) {} }
+        snapshot(MatrixBuild()) {}
     }
 }
