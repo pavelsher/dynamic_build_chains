@@ -2,6 +2,8 @@ import dynamic.MatrixBuild
 import dynamic.createBatches
 import dynamic.dynamicCompositeBuildType
 import dynamic.whenTriggered
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
@@ -51,7 +53,20 @@ project {
             root(DslContext.settingsRoot)
         }
     }.whenTriggered {
-        createBatches(5).forEach { snapshot(it) {} }
+        snapshot(BuildType {
+            id("TestsAggregator")
+            name = "Tests Aggregator"
+            type = BuildTypeSettings.Type.COMPOSITE
+
+            vcs {
+                root(DslContext.settingsRoot)
+            }
+
+            dependencies {
+                createBatches(5).forEach { snapshot(it) {} }
+            }
+
+        }) {}
 
         snapshot(MatrixBuild) {}
 
