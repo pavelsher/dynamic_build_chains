@@ -19,10 +19,10 @@ object Generator : BuildType({
             id = "Maven2"
             goals = "clean teamcity-configs:generate"
             pomLocation = ".teamcity/pom.xml"
-            runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} "
+            runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} " +
                     "-Dcontext.projectId=${DslContext.projectId} " +
-                    "-Dcontext.projectName=${DslContext.projectName} "
-                    "-Dcontext.settingsRootId=${DslContext.settingsRootId} "
+                    "-Dcontext.projectName=${DslContext.projectName} " +
+                    "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
                     "-DenableSandbox=false " +
                     "-Dcontext.parameters.generateMainCheckPipeline=true"
             workingDir = ".teamcity"
