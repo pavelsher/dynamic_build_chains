@@ -2,6 +2,7 @@ import dynamic.MatrixBuild
 import dynamic.createBatches
 import dynamic.dynamicCompositeBuildType
 import dynamic.whenTriggered
+import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
 
@@ -35,6 +36,10 @@ project {
 
         name = "Main Check"
         description = "Runs the main check"
+
+        vcs {
+            root(DslContext.settingsRoot)
+        }
     }).whenTriggered {
         createBatches(5).forEach { snapshot(it) {} }
         snapshot(MatrixBuild()) {}
