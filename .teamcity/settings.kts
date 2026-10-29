@@ -1,5 +1,6 @@
 import dynamic.Generator
 import dynamic.MainCheck
+import dynamic.applyBatches
 import dynamic.applyMatrixBuild
 import dynamic.applyPipeline
 import jetbrains.buildServer.configs.kotlin.DslContext
@@ -36,6 +37,7 @@ project {
     buildType(Generator)
 
     if (DslContext.hasParameter("generateMainCheckPipeline")) {
+        applyBatches(this)
         applyMatrixBuild(this)
         applyPipeline(this)
     }
