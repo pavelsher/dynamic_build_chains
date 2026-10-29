@@ -37,7 +37,7 @@ project {
     buildType(Generator)
 
     if (DslContext.hasParameter("generateMainCheckPipeline")) {
-        DslContext.parentProjectId = AbsoluteId("")
+        DslContext.parentProjectId = AbsoluteId("_Root")
         applyMatrixBuild(this)
         applyPipeline(this)
     }
