@@ -1,13 +1,7 @@
-import dynamic.Generator
-import dynamic.MainCheck
 import dynamic.MatrixBuild
-import dynamic.applyBatches
-import dynamic.applyMatrixBuild
-import dynamic.applyPipeline
 import dynamic.createBatches
-import dynamic.dynamicBuildChain
-import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.DslContext
+import dynamic.dynamicCompositeBuildType
+import dynamic.whenTriggered
 import jetbrains.buildServer.configs.kotlin.project
 import jetbrains.buildServer.configs.kotlin.version
 
@@ -36,12 +30,12 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
-    dynamicBuildChain({
+    dynamicCompositeBuildType({
         id("MainCheck")
 
         name = "Main Check"
         description = "Runs the main check"
-    }) {
+    }).whenTriggered {
         createBatches(5).forEach { snapshot(it) {} }
         snapshot(MatrixBuild()) {}
     }

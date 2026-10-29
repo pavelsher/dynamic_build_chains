@@ -9,17 +9,52 @@ import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import java.util.LinkedList
 
-fun Project.dynamicBuildChain(init: BuildType.() -> Unit, chainProducer: Dependencies.() -> Unit): BuildType {
-    val dynamicBuildChain = buildType(init)
+open class DynamicBuildChain(val project: Project) : BuildType()
+
+fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
+    val chainId = id.toString()
+    val chainIdContextParameter = "generate${chainId}"
+
+    if (DslContext.hasParameter(chainIdContextParameter)) {
+        dependencies {
+            chainProducer()
+        }
+
+        // register all the dependencies in the project
+        val visited = mutableSetOf<BuildType>()
+        val queue = LinkedList<BuildType>()
+        queue.add(this)
+
+        while (!queue.isEmpty()) {
+            val next = queue.pop()
+            if (visited.add(next)) {
+                next.dependencies.items.forEach { dependency ->
+                    val depBuildType = dependency.buildTypeId
+                    if (depBuildType is BuildType) {
+                        this.project.buildType(depBuildType)
+                        queue.add(depBuildType)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun Project.dynamicCompositeBuildType(init: DynamicBuildChain.() -> Unit): DynamicBuildChain {
+    val dynamicBuildChain = DynamicBuildChain(this)
+    dynamicBuildChain.init()
     dynamicBuildChain.type = BuildTypeSettings.Type.COMPOSITE
 
-    val chainId = dynamicBuildChain.id.toString()
     val generatorId = dynamicBuildChain.id.toString() + "Generator"
+    val chainId = dynamicBuildChain.id.toString()
     val chainIdContextParameter = "generate${chainId}"
     dynamicBuildChain.params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
 
+    buildType(dynamicBuildChain)
+
+    // create generator build type
     buildType {
         id = AbsoluteId(generatorId)
         name = dynamicBuildChain.name + " Generator"
@@ -46,29 +81,6 @@ fun Project.dynamicBuildChain(init: BuildType.() -> Unit, chainProducer: Depende
         }
     }
 
-    if (DslContext.hasParameter(chainIdContextParameter)) {
-        chainProducer(dynamicBuildChain.dependencies)
-
-        val project = this
-
-        // register all the dependencies in the project
-        val visited = mutableSetOf<BuildType>()
-        val queue = LinkedList<BuildType>()
-        queue.add(dynamicBuildChain)
-
-        while (!queue.isEmpty()) {
-            val next = queue.pop()
-            if (visited.add(next)) {
-                next.dependencies.items.forEach { dependency ->
-                    val depBuildType = dependency.buildTypeId
-                    if (depBuildType is BuildType) {
-                        project.buildType(depBuildType)
-                        queue.add(depBuildType)
-                    }
-                }
-            }
-        }
-    }
-
     return dynamicBuildChain
 }
+
