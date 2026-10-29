@@ -31,7 +31,7 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
-    dynamicCompositeBuildType({
+    dynamicCompositeBuildType {
         id("MainCheck")
 
         name = "Main Check"
@@ -40,7 +40,7 @@ project {
         vcs {
             root(DslContext.settingsRoot)
         }
-    }).whenTriggered {
+    }.whenTriggered {
         createBatches(5).forEach { snapshot(it) {} }
         snapshot(MatrixBuild()) {}
     }
