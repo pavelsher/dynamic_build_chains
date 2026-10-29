@@ -14,6 +14,10 @@ object Generator : BuildType({
         root(DslContext.settingsRoot)
     }
 
+    params {
+        param("env.GENERATE_PIPELINE", "true")
+    }
+
     steps {
         maven {
             id = "Maven2"

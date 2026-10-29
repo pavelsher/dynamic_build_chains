@@ -37,7 +37,7 @@ project {
     buildType(MainCheck)
     buildType(Generator)
 
-    if (DslContext.hasParameter("generateMainCheckPipeline")) {
+    System.getenv("GENERATE_PIPELINE")?.let {
         applyMatrixBuild(this)
         applyPipeline(this)
     }
