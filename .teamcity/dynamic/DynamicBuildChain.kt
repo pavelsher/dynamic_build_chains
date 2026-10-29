@@ -22,6 +22,8 @@ fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
             chainProducer()
         }
 
+        val registeredObjects = findRegisteredObjects()
+
         // register all the dependencies in the project
         val visited = mutableSetOf<IdOwner>()
         val queue = LinkedList<IdOwner>()
@@ -39,14 +41,30 @@ fun DynamicBuildChain.whenTriggered(chainProducer: Dependencies.() -> Unit) {
                 dependencies.items.forEach { dependency ->
                     val dep = dependency.buildTypeId
                     queue.add(dep)
-                    when (dep) {
-                        is BuildType -> this.project.buildType(dep)
-                        is Pipeline -> this.project.pipeline(dep)
+                    if (registeredObjects.add(dep)) { // only register if not already registered
+                        when (dep) {
+                            is BuildType -> this.project.buildType(dep)
+                            is Pipeline -> this.project.pipeline(dep)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+private fun DynamicBuildChain.findRegisteredObjects(): MutableSet<IdOwner> {
+    val registeredObjects = mutableSetOf<IdOwner>()
+    val projectsQueue = LinkedList<Project>()
+    projectsQueue.add(project)
+
+    while (!projectsQueue.isEmpty()) {
+        val next = projectsQueue.pop()
+        registeredObjects.addAll(next.buildTypes)
+        registeredObjects.addAll(next.pipelines)
+        projectsQueue.addAll(next.subProjects)
+    }
+    return registeredObjects
 }
 
 fun Project.dynamicCompositeBuildType(init: DynamicBuildChain.() -> Unit): DynamicBuildChain {
