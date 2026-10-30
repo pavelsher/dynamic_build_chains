@@ -30,7 +30,7 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
-    buildType {
+    val compile = buildType {
         id("Compile")
         name = "Compile"
 
@@ -56,7 +56,7 @@ project {
         }
 
         dependencies {
-            snapshot(DslContext.createId("Compile")) {}
+            snapshot(compile) {}
         }
 
         dynamicDependencies {
