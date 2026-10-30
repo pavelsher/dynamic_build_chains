@@ -1,6 +1,6 @@
 import dynamic.MatrixBuild
 import dynamic.createBatches
-import dynamic.dynamicCompositeBuildType
+import dynamic.dynamicBuildChain
 import dynamic.whenTriggered
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
@@ -35,7 +35,7 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
-    dynamicCompositeBuildType {
+    dynamicBuildChain {
         id("MainCheck")
 
         name = "Main Check"
@@ -43,7 +43,7 @@ project {
         settingsDir = ".teamcity"
 
         vcs {
-            root(DslContext.settingsRoot, "+:${this@dynamicCompositeBuildType.settingsDir}")
+            root(DslContext.settingsRoot, "+:${this@dynamicBuildChain.settingsDir}")
         }
     }.whenTriggered {
         snapshot(BuildType {

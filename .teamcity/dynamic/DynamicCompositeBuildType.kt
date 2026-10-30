@@ -81,7 +81,7 @@ private fun DynamicCompositeBuildType.findRegisteredObjects(): MutableSet<IdOwne
     return registeredObjects
 }
 
-fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit): DynamicCompositeBuildType {
+fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): DynamicCompositeBuildType {
     val dynamicCompositeBuildType = DynamicCompositeBuildType(this)
     dynamicCompositeBuildType.init()
     dynamicCompositeBuildType.type = BuildTypeSettings.Type.COMPOSITE
