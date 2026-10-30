@@ -99,7 +99,10 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
         artifactRules = dynamicCompositeBuildType.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
 
         vcs {
-            root(DslContext.settingsRoot)
+            // generator get's the same roots and checkout rules as the chain head
+            for ((root, checkoutRules) in dynamicCompositeBuildType.vcs.entries) {
+                root(root.id!!, checkoutRules.joinToString("\n"))
+            }
         }
 
         params {

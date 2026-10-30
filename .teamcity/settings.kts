@@ -43,7 +43,7 @@ project {
         settingsDir = ".teamcity"
 
         vcs {
-            root(DslContext.settingsRoot)
+            root(DslContext.settingsRoot, "+:${this@dynamicCompositeBuildType.settingsDir}")
         }
     }.whenTriggered {
         snapshot(BuildType {
