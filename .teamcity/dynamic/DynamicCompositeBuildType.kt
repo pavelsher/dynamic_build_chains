@@ -7,7 +7,6 @@ import jetbrains.buildServer.configs.kotlin.Dependencies
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.IdOwner
 import jetbrains.buildServer.configs.kotlin.Project
-import jetbrains.buildServer.configs.kotlin.PropInitOnceDelegate
 import jetbrains.buildServer.configs.kotlin.buildFeatures.buildCache
 import jetbrains.buildServer.configs.kotlin.buildSteps.MavenBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
@@ -16,50 +15,34 @@ import java.util.ArrayDeque
 
 private const val DYNAMIC_BUILD_TYPE_ID_ENV_VAR = "DYNAMIC_BUILD_TYPE_ID"
 
-open class DynamicCompositeBuildType : BuildType() {
+open class DynamicCompositeBuildType: BuildType() {
     // directory inside the versioned settings repository where the Kotlin DSL scripts are located
     var settingsDir: String = ".teamcity"
-    var project: Project? = null
     var generator: BuildType? = null
+    private var dynamicDependenciesInitializer: Dependencies.() -> Unit = {}
 
-    fun attachToProject(project: Project) {
-        if (this.project != null) {
-            throw IllegalStateException("The build configuration $this is already attached to project $project")
-        }
-
+    override fun initializeInProject(project: Project) {
         if (this.generator == null) {
             throw IllegalStateException("The build configuration $this does not have a generator")
         }
 
-        this.project = project
-        project.buildType(this)
         project.buildType(generator!!)
-    }
 
-    private fun checkProjectIsPresent() {
-        if (this.project == null) {
-            throw IllegalStateException("The build configuration $this is not attached to any project")
-        }
+        applyDynamicDependenciesInitializer(project, dynamicDependenciesInitializer)
     }
 
     fun dynamicDependencies(chainProducer: Dependencies.() -> Unit) {
         if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
 
-        PropInitOnceDelegate(this).setInitializer {
-            // we should call the chain producer when all the projects are initialized
-            // this ensures that it will see all the registered objects properly
-            applyWhenTriggered(chainProducer)
-        }
+        dynamicDependenciesInitializer = chainProducer
     }
 
-    private fun applyWhenTriggered(chainProducer: Dependencies.() -> Unit) {
-        checkProjectIsPresent()
-
+    private fun applyDynamicDependenciesInitializer(project: Project, chainProducer: Dependencies.() -> Unit) {
         dependencies {
             chainProducer()
         }
 
-        val registeredObjects = findRegisteredObjects()
+        val registeredObjects = findRegisteredObjects(project)
 
         // register all the dependencies in the project
         val visited = mutableSetOf<IdOwner>()
@@ -82,18 +65,18 @@ open class DynamicCompositeBuildType : BuildType() {
 
                 if (registeredObjects.add(target)) {
                     when (target) {
-                        is BuildType -> project!!.buildType(target)
-                        is Pipeline -> project!!.pipeline(target)
+                        is BuildType -> project.buildType(target)
+                        is Pipeline -> project.pipeline(target)
                     }
                 }
             }
         }
     }
 
-    private fun findRegisteredObjects(): MutableSet<IdOwner> {
+    private fun findRegisteredObjects(project: Project): MutableSet<IdOwner> {
         val registeredObjects = mutableSetOf<IdOwner>()
         val projectsQueue = ArrayDeque<Project>()
-        projectsQueue.add(project!!)
+        projectsQueue.add(project)
 
         while (projectsQueue.isNotEmpty()) {
             val next = projectsQueue.removeFirst()
@@ -114,6 +97,8 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
     dynamicHead.params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
+
+    buildType(dynamicHead)
 
     // create generator build type
     dynamicHead.generator = BuildType() {
@@ -166,8 +151,6 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
             }
         }
     }
-
-    dynamicHead.attachToProject(this)
 
     return dynamicHead
 }
