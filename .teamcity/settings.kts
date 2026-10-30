@@ -61,7 +61,7 @@ project {
 
         }) {}
 
-        snapshot(MatrixBuild) {}
+        snapshot(MatrixBuild) {} // adding a dependency which is already defined in the project
 
         snapshot(Pipeline {
             id("Pipeline")
