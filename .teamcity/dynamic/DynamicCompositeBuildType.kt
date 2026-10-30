@@ -123,6 +123,7 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
                         "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
                         "-DenableSandbox=false " +
+                        "-Dkotlin.compiler.incremental=true " +
                         "\"-Dmaven.repo.local=${mavenRepoDir}\""
                 localRepoScope = MavenBuildStep.RepositoryScope.MAVEN_DEFAULT
                 mavenVersion = bundled_3_9()
