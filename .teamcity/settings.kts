@@ -30,33 +30,17 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
-    val compile = buildType {
-        id("Compile")
-        name = "Compile"
-
-        steps {
-            script {
-                scriptContent = """
-                    echo "Hello World!"
-                """.trimIndent()
-            }
-        }
-    }
 
     dynamicBuildChain {
         id("MainCheck")
 
-        name = "Main Check"
-        description = "Runs the main check"
+        name = "Main Pull Request Check"
+        description = "Runs tests on every pull request"
 
         settingsDir = ".teamcity"
 
         vcs {
             root(DslContext.settingsRoot, "+:${this@dynamicBuildChain.settingsDir}")
-        }
-
-        dependencies {
-            snapshot(compile) {}
         }
 
         dynamicDependencies {
