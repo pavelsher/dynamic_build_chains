@@ -8,6 +8,8 @@ import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.IdOwner
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.PropInitOnceDelegate
+import jetbrains.buildServer.configs.kotlin.buildFeatures.buildCache
+import jetbrains.buildServer.configs.kotlin.buildSteps.MavenBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
 import java.util.ArrayDeque
@@ -99,7 +101,7 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
         artifactRules = dynamicCompositeBuildType.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
 
         vcs {
-            // generator get's the same roots and checkout rules as the chain head
+            // generator gets the same roots and checkout rules as the chain head
             for ((root, checkoutRules) in dynamicCompositeBuildType.vcs.entries) {
                 root(root.id!!, checkoutRules.joinToString("\n"))
             }
@@ -110,6 +112,8 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
             param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", dynamicCompositeBuildType.id.toString())
         }
 
+        val mavenRepoDir = "%teamcity.build.checkoutDir%/.m2"
+
         steps {
             maven {
                 goals = "clean teamcity-configs:generate"
@@ -118,9 +122,20 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
                         "-Dcontext.projectId=${DslContext.projectId} " +
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
                         "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
-                        "-DenableSandbox=false"
+                        "-DenableSandbox=false " +
+                        "\"-Dmaven.repo.local=${mavenRepoDir}\""
+                localRepoScope = MavenBuildStep.RepositoryScope.MAVEN_DEFAULT
+                mavenVersion = bundled_3_9()
                 workingDir = dynamicCompositeBuildType.settingsDirPath("")
                 jdkHome = "%teamcity.agent.jvm.java.home%"
+            }
+        }
+
+        features {
+            buildCache {
+                name = "maven_repo"
+                rules = mavenRepoDir
+                publishOnlyChanged = true
             }
         }
     }
