@@ -30,6 +30,19 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2026.1"
 
 project {
+    buildType {
+        id("Compile")
+        name = "Compile"
+
+        steps {
+            script {
+                scriptContent = """
+                    echo "Hello World!"
+                """.trimIndent()
+            }
+        }
+    }
+
     dynamicBuildChain {
         id("MainCheck")
 
@@ -43,7 +56,7 @@ project {
         }
 
         dependencies {
-            // TODO
+            snapshot(DslContext.createId("Compile")) {}
         }
 
         dynamicDependencies {
