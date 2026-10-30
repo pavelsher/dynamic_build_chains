@@ -16,11 +16,10 @@ open class DynamicCompositeBuildType(val project: Project) : BuildType() {
     var settingsDir: String = ".teamcity"
 }
 
-fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Unit) {
-    val chainId = id.toString()
-    val chainIdContextParameter = "generate${chainId}"
+private const val DYNAMIC_BUILD_TYPE_ID_ENV_VAR = "DYNAMIC_BUILD_TYPE_ID"
 
-    if (DslContext.hasParameter(chainIdContextParameter)) {
+fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Unit) {
+    if (id.toString() == System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) {
         dependencies {
             chainProducer()
         }
@@ -76,8 +75,6 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
     dynamicCompositeBuildType.type = BuildTypeSettings.Type.COMPOSITE
 
     val generatorId = dynamicCompositeBuildType.id.toString() + "Generator"
-    val chainId = dynamicCompositeBuildType.id.toString()
-    val chainIdContextParameter = "generate${chainId}"
     dynamicCompositeBuildType.params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
@@ -95,6 +92,11 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
             root(DslContext.settingsRoot)
         }
 
+        params {
+            // add marker environment variable which tells us that it's time to generate a dynamic part
+            param("env." + DYNAMIC_BUILD_TYPE_ID_ENV_VAR, dynamicCompositeBuildType.id.toString());
+        }
+
         steps {
             maven {
                 goals = "clean teamcity-configs:generate"
@@ -103,8 +105,7 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
                         "-Dcontext.projectId=${DslContext.projectId} " +
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
                         "-Dcontext.settingsRootId=${DslContext.settingsRootId} " +
-                        "-DenableSandbox=false " +
-                        "-Dcontext.parameters.${chainIdContextParameter}=true"
+                        "-DenableSandbox=false"
                 workingDir = dynamicCompositeBuildType.settingsDirPath("")
                 jdkHome = "%teamcity.agent.jvm.java.home%"
             }
