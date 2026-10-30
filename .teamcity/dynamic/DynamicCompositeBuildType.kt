@@ -37,7 +37,7 @@ open class DynamicCompositeBuildType : BuildType() {
     }
 
     private fun checkProjectIsPresent() {
-        if (this.project != null) {
+        if (this.project == null) {
             throw IllegalStateException("The build configuration $this is not attached to any project")
         }
     }
