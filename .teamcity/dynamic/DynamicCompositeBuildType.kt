@@ -113,6 +113,7 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
         }
 
         val mavenRepoDir = "%teamcity.build.checkoutDir%/.m2"
+        val kotlinIncrementalCacheDir = dynamicCompositeBuildType.settingsDirPath("target/kotlin-dsl-ic")
 
         steps {
             maven {
@@ -135,7 +136,10 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
         features {
             buildCache {
                 name = "maven_repo"
-                rules = mavenRepoDir
+                rules = """
+                    $mavenRepoDir
+                    $kotlinIncrementalCacheDir
+                """.trimIndent()
                 publishOnlyChanged = true
             }
         }
