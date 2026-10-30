@@ -7,9 +7,10 @@ import jetbrains.buildServer.configs.kotlin.Dependencies
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.IdOwner
 import jetbrains.buildServer.configs.kotlin.Project
+import jetbrains.buildServer.configs.kotlin.PropInitOnceDelegate
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
-import java.util.LinkedList
+import java.util.ArrayDeque
 
 open class DynamicCompositeBuildType(val project: Project) : BuildType() {
     // directory inside the versioned settings repository where the Kotlin DSL scripts are located
@@ -19,36 +20,45 @@ open class DynamicCompositeBuildType(val project: Project) : BuildType() {
 private const val DYNAMIC_BUILD_TYPE_ID_ENV_VAR = "DYNAMIC_BUILD_TYPE_ID"
 
 fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Unit) {
-    if (id.toString() == System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) {
-        dependencies {
-            chainProducer()
+    if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
+
+    PropInitOnceDelegate(this).setInitializer {
+        // we should call the chain producer when all the projects are initialized
+        // this ensures that it will see all the registered objects properly
+        applyWhenTriggered(chainProducer)
+    }
+}
+
+private fun DynamicCompositeBuildType.applyWhenTriggered(chainProducer: Dependencies.() -> Unit) {
+    dependencies {
+        chainProducer()
+    }
+
+    val registeredObjects = findRegisteredObjects()
+
+    // register all the dependencies in the project
+    val visited = mutableSetOf<IdOwner>()
+    val queue = ArrayDeque<IdOwner>()
+    queue.add(this)
+
+    while (queue.isNotEmpty()) {
+        val next = queue.removeFirst()
+        if (!visited.add(next)) continue
+
+        val dependencies = when (next) {
+            is BuildType -> next.dependencies
+            is Pipeline -> next.dependencies
+            else -> error("Unsupported type: ${next::class}")
         }
 
-        val registeredObjects = findRegisteredObjects()
+        for (dependency in dependencies.items) {
+            val target = dependency.buildTypeId
+            queue.add(target)
 
-        // register all the dependencies in the project
-        val visited = mutableSetOf<IdOwner>()
-        val queue = LinkedList<IdOwner>()
-        queue.add(this)
-
-        while (!queue.isEmpty()) {
-            val next = queue.pop()
-            if (visited.add(next)) {
-                val dependencies = when (next) {
-                    is BuildType -> next.dependencies
-                    is Pipeline -> next.dependencies
-                    else -> error("Unsupported type: ${next::class}")
-                }
-
-                dependencies.items.forEach { dependency ->
-                    val dep = dependency.buildTypeId
-                    queue.add(dep)
-                    if (registeredObjects.add(dep)) { // only register if not already registered
-                        when (dep) {
-                            is BuildType -> this.project.buildType(dep)
-                            is Pipeline -> this.project.pipeline(dep)
-                        }
-                    }
+            if (registeredObjects.add(target)) {
+                when (target) {
+                    is BuildType -> project.buildType(target)
+                    is Pipeline -> project.pipeline(target)
                 }
             }
         }
@@ -57,11 +67,11 @@ fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Un
 
 private fun DynamicCompositeBuildType.findRegisteredObjects(): MutableSet<IdOwner> {
     val registeredObjects = mutableSetOf<IdOwner>()
-    val projectsQueue = LinkedList<Project>()
+    val projectsQueue = ArrayDeque<Project>()
     projectsQueue.add(project)
 
-    while (!projectsQueue.isEmpty()) {
-        val next = projectsQueue.pop()
+    while (projectsQueue.isNotEmpty()) {
+        val next = projectsQueue.removeFirst()
         registeredObjects.addAll(next.buildTypes)
         registeredObjects.addAll(next.pipelines)
         projectsQueue.addAll(next.subProjects)
@@ -94,7 +104,7 @@ fun Project.dynamicCompositeBuildType(init: DynamicCompositeBuildType.() -> Unit
 
         params {
             // add marker environment variable which tells us that it's time to generate a dynamic part
-            param("env." + DYNAMIC_BUILD_TYPE_ID_ENV_VAR, dynamicCompositeBuildType.id.toString());
+            param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", dynamicCompositeBuildType.id.toString())
         }
 
         steps {
