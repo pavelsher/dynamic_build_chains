@@ -1,14 +1,9 @@
 import dynamic.MatrixBuild
 import dynamic.createBatches
 import dynamic.dynamicBuildChain
-import dynamic.whenTriggered
-import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
-import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
-import jetbrains.buildServer.configs.kotlin.project
-import jetbrains.buildServer.configs.kotlin.version
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -40,57 +35,63 @@ project {
 
         name = "Main Check"
         description = "Runs the main check"
+
         settingsDir = ".teamcity"
 
         vcs {
             root(DslContext.settingsRoot, "+:${this@dynamicBuildChain.settingsDir}")
         }
-    }.whenTriggered {
-        snapshot(BuildType {
-            id("TestsAggregator")
-            name = "Tests Aggregator"
-            type = BuildTypeSettings.Type.COMPOSITE
 
-            vcs {
-                root(DslContext.settingsRoot)
-            }
+        dependencies {
+            // TODO
+        }
 
-            dependencies {
-                createBatches(5).forEach { snapshot(it) {} }
-            }
+        dynamicDependencies {
+            snapshot(BuildType {
+                id("TestsAggregator")
+                name = "Tests Aggregator"
+                type = BuildTypeSettings.Type.COMPOSITE
 
-        }) {}
+                vcs {
+                    root(DslContext.settingsRoot)
+                }
 
-        snapshot(MatrixBuild) {} // adding a dependency which is already defined in the project
+                dependencies {
+                    createBatches(5).forEach { snapshot(it) {} }
+                }
 
-        snapshot(Pipeline {
-            id("Pipeline")
-            name = "Test Pipeline"
+            }) {}
 
-            repositories {
-                repository(DslContext.settingsRoot, enabledByDefault = true)
-            }
+            snapshot(MatrixBuild) {} // adding a dependency which is already defined in the project
 
-            job {
-                id("Compile")
-                name = "Compile"
+            snapshot(Pipeline {
+                id("Pipeline")
+                name = "Test Pipeline"
 
-                steps {
-                    script {
-                        scriptContent = """
+                repositories {
+                    repository(DslContext.settingsRoot, enabledByDefault = true)
+                }
+
+                job {
+                    id("Compile")
+                    name = "Compile"
+
+                    steps {
+                        script {
+                            scriptContent = """
                         echo "Compiling"
                     """.trimIndent()
+                        }
                     }
                 }
-            }
 
-            job {
-                id("RunTests")
-                name = "Run Tests"
+                job {
+                    id("RunTests")
+                    name = "Run Tests"
 
-                steps {
-                    script {
-                        scriptContent = """
+                    steps {
+                        script {
+                            scriptContent = """
                         echo "running tests"
                         echo "##teamcity[testStarted name='pipeline.test0']"
                         echo "##teamcity[testFinished name='pipeline.test0']"
@@ -99,12 +100,13 @@ project {
                         echo "##teamcity[testStarted name='pipeline.test2']"
                         echo "##teamcity[testFinished name='pipeline.test2']"
                     """.trimIndent()
+                        }
                     }
-                }
 
-                dependency("Compile") {}
-            }
-        }) {}
+                    dependency("Compile") {}
+                }
+            }) {}
+        }
     }
 
     subProject {

@@ -14,111 +14,133 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
 import java.util.ArrayDeque
 
-open class DynamicCompositeBuildType(val project: Project) : BuildType() {
-    // directory inside the versioned settings repository where the Kotlin DSL scripts are located
-    var settingsDir: String = ".teamcity"
-}
-
 private const val DYNAMIC_BUILD_TYPE_ID_ENV_VAR = "DYNAMIC_BUILD_TYPE_ID"
 
-fun DynamicCompositeBuildType.whenTriggered(chainProducer: Dependencies.() -> Unit) {
-    if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
+open class DynamicCompositeBuildType : BuildType() {
+    // directory inside the versioned settings repository where the Kotlin DSL scripts are located
+    var settingsDir: String = ".teamcity"
+    var project: Project? = null
+    var generator: BuildType? = null
 
-    PropInitOnceDelegate(this).setInitializer {
-        // we should call the chain producer when all the projects are initialized
-        // this ensures that it will see all the registered objects properly
-        applyWhenTriggered(chainProducer)
-    }
-}
-
-private fun DynamicCompositeBuildType.applyWhenTriggered(chainProducer: Dependencies.() -> Unit) {
-    dependencies {
-        chainProducer()
-    }
-
-    val registeredObjects = findRegisteredObjects()
-
-    // register all the dependencies in the project
-    val visited = mutableSetOf<IdOwner>()
-    val queue = ArrayDeque<IdOwner>()
-    queue.add(this)
-
-    while (queue.isNotEmpty()) {
-        val next = queue.removeFirst()
-        if (!visited.add(next)) continue
-
-        val dependencies = when (next) {
-            is BuildType -> next.dependencies
-            is Pipeline -> next.dependencies
-            else -> error("Unsupported type: ${next::class}")
+    fun attachToProject(project: Project) {
+        if (this.project != null) {
+            throw IllegalStateException("The build configuration $this is already attached to project $project")
         }
 
-        for (dependency in dependencies.items) {
-            val target = dependency.buildTypeId
-            queue.add(target)
+        if (this.generator == null) {
+            throw IllegalStateException("The build configuration $this does not have a generator")
+        }
 
-            if (registeredObjects.add(target)) {
-                when (target) {
-                    is BuildType -> project.buildType(target)
-                    is Pipeline -> project.pipeline(target)
+        this.project = project
+        project.buildType(this)
+        project.buildType(generator!!)
+    }
+
+    private fun checkProjectIsPresent() {
+        if (this.project != null) {
+            throw IllegalStateException("The build configuration $this is not attached to any project")
+        }
+    }
+
+    fun dynamicDependencies(chainProducer: Dependencies.() -> Unit) {
+        if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
+
+        PropInitOnceDelegate(this).setInitializer {
+            // we should call the chain producer when all the projects are initialized
+            // this ensures that it will see all the registered objects properly
+            applyWhenTriggered(chainProducer)
+        }
+    }
+
+    private fun applyWhenTriggered(chainProducer: Dependencies.() -> Unit) {
+        checkProjectIsPresent()
+
+        dependencies {
+            chainProducer()
+        }
+
+        val registeredObjects = findRegisteredObjects()
+
+        // register all the dependencies in the project
+        val visited = mutableSetOf<IdOwner>()
+        val queue = ArrayDeque<IdOwner>()
+        queue.add(this)
+
+        while (queue.isNotEmpty()) {
+            val next = queue.removeFirst()
+            if (!visited.add(next)) continue
+
+            val dependencies = when (next) {
+                is BuildType -> next.dependencies
+                is Pipeline -> next.dependencies
+                else -> error("Unsupported type: ${next::class}")
+            }
+
+            for (dependency in dependencies.items) {
+                val target = dependency.buildTypeId
+                queue.add(target)
+
+                if (registeredObjects.add(target)) {
+                    when (target) {
+                        is BuildType -> project!!.buildType(target)
+                        is Pipeline -> project!!.pipeline(target)
+                    }
                 }
             }
         }
     }
-}
 
-private fun DynamicCompositeBuildType.findRegisteredObjects(): MutableSet<IdOwner> {
-    val registeredObjects = mutableSetOf<IdOwner>()
-    val projectsQueue = ArrayDeque<Project>()
-    projectsQueue.add(project)
+    private fun findRegisteredObjects(): MutableSet<IdOwner> {
+        val registeredObjects = mutableSetOf<IdOwner>()
+        val projectsQueue = ArrayDeque<Project>()
+        projectsQueue.add(project!!)
 
-    while (projectsQueue.isNotEmpty()) {
-        val next = projectsQueue.removeFirst()
-        registeredObjects.addAll(next.buildTypes)
-        registeredObjects.addAll(next.pipelines)
-        projectsQueue.addAll(next.subProjects)
+        while (projectsQueue.isNotEmpty()) {
+            val next = projectsQueue.removeFirst()
+            registeredObjects.addAll(next.buildTypes)
+            registeredObjects.addAll(next.pipelines)
+            projectsQueue.addAll(next.subProjects)
+        }
+        return registeredObjects
     }
-    return registeredObjects
 }
 
 fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): DynamicCompositeBuildType {
-    val dynamicCompositeBuildType = DynamicCompositeBuildType(this)
-    dynamicCompositeBuildType.init()
-    dynamicCompositeBuildType.type = BuildTypeSettings.Type.COMPOSITE
+    val dynamicHead = DynamicCompositeBuildType()
+    dynamicHead.init()
+    dynamicHead.type = BuildTypeSettings.Type.COMPOSITE
 
-    val generatorId = dynamicCompositeBuildType.id.toString() + "Generator"
-    dynamicCompositeBuildType.params {
+    val generatorId = dynamicHead.id.toString() + "Generator"
+    dynamicHead.params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
 
-    buildType(dynamicCompositeBuildType)
-
     // create generator build type
-    buildType {
+    dynamicHead.generator = BuildType() {
         id = AbsoluteId(generatorId)
-        name = dynamicCompositeBuildType.name + " Generator"
+        name = dynamicHead.name + " Generator"
 
-        artifactRules = dynamicCompositeBuildType.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
+        artifactRules = dynamicHead.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
 
         vcs {
             // generator gets the same roots and checkout rules as the chain head
-            for ((root, checkoutRules) in dynamicCompositeBuildType.vcs.entries) {
+            for ((root, checkoutRules) in dynamicHead.vcs.entries) {
                 root(root.id!!, checkoutRules.joinToString("\n"))
             }
         }
 
         params {
             // add marker environment variable which tells us that it's time to generate a dynamic part
-            param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", dynamicCompositeBuildType.id.toString())
+            param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", dynamicHead.id.toString())
         }
 
         val mavenRepoDir = "%teamcity.build.checkoutDir%/.m2"
-        val kotlinIncrementalCacheDir = dynamicCompositeBuildType.settingsDirPath("target/kotlin-dsl-ic")
+        val kotlinIncrementalCacheDir = dynamicHead.settingsDirPath("target/kotlin-dsl-ic")
 
         steps {
             maven {
                 goals = "clean teamcity-configs:generate"
-                pomLocation = dynamicCompositeBuildType.settingsDirPath("pom.xml")
+                pomLocation = dynamicHead.settingsDirPath("pom.xml")
                 runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} " +
                         "-Dcontext.projectId=${DslContext.projectId} " +
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
@@ -128,7 +150,7 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
                         "\"-Dmaven.repo.local=${mavenRepoDir}\""
                 localRepoScope = MavenBuildStep.RepositoryScope.MAVEN_DEFAULT
                 mavenVersion = bundled_3_9()
-                workingDir = dynamicCompositeBuildType.settingsDirPath("")
+                workingDir = dynamicHead.settingsDirPath("")
                 jdkHome = "%teamcity.agent.jvm.java.home%"
             }
         }
@@ -145,7 +167,9 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
         }
     }
 
-    return dynamicCompositeBuildType
+    dynamicHead.attachToProject(this)
+
+    return dynamicHead
 }
 
 private fun DynamicCompositeBuildType.settingsDirPath(relPath: String): String {
