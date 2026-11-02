@@ -21,7 +21,7 @@ open class DynamicCompositeBuildType: BuildType() {
     var generator: BuildType? = null
     private var dynamicDependenciesInitializer: Dependencies.() -> Unit = {}
 
-    override fun initializeInProject(project: Project) {
+    override fun onProjectInitialized(project: Project) {
         if (this.generator == null) {
             throw IllegalStateException("The build configuration $this does not have a generator")
         }
