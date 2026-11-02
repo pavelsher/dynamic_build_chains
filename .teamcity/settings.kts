@@ -41,6 +41,7 @@ project {
         }
 
         executeInRuntime {
+            type = BuildTypeSettings.Type.COMPOSITE
 
             dependencies {
                 snapshot(BuildType {
