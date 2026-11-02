@@ -1,6 +1,6 @@
-import dynamic.MatrixBuild
+ import dynamic.MatrixBuild
 import dynamic.createBatches
-import dynamic.dynamicBuildChain
+import dynamic.executeInRuntime
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
@@ -31,64 +31,66 @@ version = "2026.1"
 
 project {
 
-    dynamicBuildChain {
+    val project = this
+
+    buildType {
         id("MainCheck")
 
         name = "Main Pull Request Check"
         description = "Runs tests on every pull request"
 
-        settingsDir = ".teamcity"
-
         vcs {
-            root(DslContext.settingsRoot, "+:${this@dynamicBuildChain.settingsDir}")
+            root(DslContext.settingsRoot, "+:.teamcity")
         }
 
-        dynamicDependencies {
-            snapshot(BuildType {
-                id("TestsAggregator")
-                name = "Tests Aggregator"
-                type = BuildTypeSettings.Type.COMPOSITE
+        executeInRuntime(project) {
 
-                vcs {
-                    root(DslContext.settingsRoot)
-                }
+            dependencies {
+                snapshot(BuildType {
+                    id("TestsAggregator")
+                    name = "Tests Aggregator"
+                    type = BuildTypeSettings.Type.COMPOSITE
 
-                dependencies {
-                    createBatches(5).forEach { snapshot(it) {} }
-                }
+                    vcs {
+                        root(DslContext.settingsRoot)
+                    }
 
-            }) {}
+                    dependencies {
+                        createBatches(5).forEach { snapshot(it) {} }
+                    }
 
-            snapshot(MatrixBuild) {} // adding a dependency which is already defined in the project
+                }) {}
 
-            snapshot(Pipeline {
-                id("Pipeline")
-                name = "Test Pipeline"
+                snapshot(MatrixBuild) {} // adding a dependency which is already defined in the project
 
-                repositories {
-                    repository(DslContext.settingsRoot, enabledByDefault = true)
-                }
+                snapshot(Pipeline {
+                    id("Pipeline")
+                    name = "Test Pipeline"
 
-                job {
-                    id("Compile")
-                    name = "Compile"
+                    repositories {
+                        repository(DslContext.settingsRoot, enabledByDefault = true)
+                    }
 
-                    steps {
-                        script {
-                            scriptContent = """
+                    job {
+                        id("Compile")
+                        name = "Compile"
+
+                        steps {
+                            script {
+                                scriptContent = """
                         echo "Compiling"
                     """.trimIndent()
+                            }
                         }
                     }
-                }
 
-                job {
-                    id("RunTests")
-                    name = "Run Tests"
+                    job {
+                        id("RunTests")
+                        name = "Run Tests"
 
-                    steps {
-                        script {
-                            scriptContent = """
+                        steps {
+                            script {
+                                scriptContent = """
                         echo "running tests"
                         echo "##teamcity[testStarted name='pipeline.test0']"
                         echo "##teamcity[testFinished name='pipeline.test0']"
@@ -97,12 +99,14 @@ project {
                         echo "##teamcity[testStarted name='pipeline.test2']"
                         echo "##teamcity[testFinished name='pipeline.test2']"
                     """.trimIndent()
+                            }
                         }
-                    }
 
-                    dependency("Compile") {}
-                }
-            }) {}
+                        dependency("Compile") {}
+                    }
+                }) {}
+            }
+
         }
     }
 

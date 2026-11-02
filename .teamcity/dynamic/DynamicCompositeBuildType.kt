@@ -2,8 +2,6 @@ package dynamic
 
 import jetbrains.buildServer.configs.kotlin.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
-import jetbrains.buildServer.configs.kotlin.Dependencies
 import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.IdOwner
 import jetbrains.buildServer.configs.kotlin.Project
@@ -11,43 +9,32 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.buildCache
 import jetbrains.buildServer.configs.kotlin.buildSteps.MavenBuildStep
 import jetbrains.buildServer.configs.kotlin.buildSteps.maven
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
-import java.util.ArrayDeque
 
 private const val DYNAMIC_BUILD_TYPE_ID_ENV_VAR = "DYNAMIC_BUILD_TYPE_ID"
 
-open class DynamicCompositeBuildType: BuildType() {
-    // directory inside the versioned settings repository where the Kotlin DSL scripts are located
+open class DynamicChainGenerator(val dynamicChainHead: BuildType, init: DynamicChainGenerator.() -> Unit): BuildType() {
     var settingsDir: String = ".teamcity"
-    var generator: BuildType? = null
-    private var dynamicDependenciesInitializer: Dependencies.() -> Unit = {}
+    var settingsModifier: BuildType.() -> Unit = {}
+
+    init {
+        init()
+    }
+
+    open fun settingsDirPath(relPath: String): String {
+        if (relPath.isEmpty() || settingsDir.isEmpty()) return relPath
+        if (settingsDir.endsWith("/")) return settingsDir + relPath
+        return "$settingsDir/$relPath"
+    }
 
     override fun onProjectInitialized(project: Project) {
-        if (this.generator == null) {
-            throw IllegalStateException("The build configuration $this does not have a generator")
-        }
-
-        project.buildType(generator!!)
-
-        applyDynamicDependenciesInitializer(project, dynamicDependenciesInitializer)
-    }
-
-    fun dynamicDependencies(chainProducer: Dependencies.() -> Unit) {
-        if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
-
-        dynamicDependenciesInitializer = chainProducer
-    }
-
-    private fun applyDynamicDependenciesInitializer(project: Project, chainProducer: Dependencies.() -> Unit) {
-        dependencies {
-            chainProducer()
-        }
+        dynamicChainHead.settingsModifier()
 
         val registeredObjects = findRegisteredObjects(project)
 
         // register all the dependencies in the project
         val visited = mutableSetOf<IdOwner>()
         val queue = ArrayDeque<IdOwner>()
-        queue.add(this)
+        queue.add(dynamicChainHead)
 
         while (queue.isNotEmpty()) {
             val next = queue.removeFirst()
@@ -88,44 +75,37 @@ open class DynamicCompositeBuildType: BuildType() {
     }
 }
 
-fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): DynamicCompositeBuildType {
-    val dynamicHead = DynamicCompositeBuildType()
-    dynamicHead.init()
-    dynamicHead.type = BuildTypeSettings.Type.COMPOSITE
-
-    val generatorId = dynamicHead.id.toString() + "Generator"
-    dynamicHead.params {
+fun BuildType.executeInRuntime(project: Project, settingsModifier: BuildType.() -> Unit) {
+    val generatorId = id.toString() + "Generator"
+    params {
         param("teamcity.dynamicBuildChain.generatorBuildTypeId", generatorId)
     }
 
-    buildType(dynamicHead)
-
-    // create generator build type
-    dynamicHead.generator = BuildType() {
+    val generator = DynamicChainGenerator(this) {
         id = AbsoluteId(generatorId)
-        name = dynamicHead.name + " Generator"
+        name = "${this@DynamicChainGenerator.dynamicChainHead.name} Generator"
 
-        artifactRules = dynamicHead.settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
+        artifactRules = settingsDirPath("target/generated-configs/**") + " => .teamcity/generated_settings.zip"
 
         vcs {
             // generator gets the same roots and checkout rules as the chain head
-            for ((root, checkoutRules) in dynamicHead.vcs.entries) {
+            for ((root, checkoutRules) in this@DynamicChainGenerator.dynamicChainHead.vcs.entries) {
                 root(root.id!!, checkoutRules.joinToString("\n"))
             }
         }
 
         params {
             // add marker environment variable which tells us that it's time to generate a dynamic part
-            param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", dynamicHead.id.toString())
+            param("env.$DYNAMIC_BUILD_TYPE_ID_ENV_VAR", this@DynamicChainGenerator.dynamicChainHead.id.toString())
         }
 
         val mavenRepoDir = "%teamcity.build.checkoutDir%/.m2"
-        val kotlinIncrementalCacheDir = dynamicHead.settingsDirPath("target/kotlin-dsl-ic")
+        val kotlinIncrementalCacheDir = settingsDirPath("target/kotlin-dsl-ic")
 
         steps {
             maven {
                 goals = "clean teamcity-configs:generate"
-                pomLocation = dynamicHead.settingsDirPath("pom.xml")
+                pomLocation = this@DynamicChainGenerator.settingsDirPath("pom.xml")
                 runnerArgs = "-Dcontext.parentProjectId=${DslContext.parentProjectId} " +
                         "-Dcontext.projectId=${DslContext.projectId} " +
                         "\"-Dcontext.projectName=${DslContext.projectName}\" " +
@@ -135,7 +115,7 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
                         "\"-Dmaven.repo.local=${mavenRepoDir}\""
                 localRepoScope = MavenBuildStep.RepositoryScope.MAVEN_DEFAULT
                 mavenVersion = bundled_3_9()
-                workingDir = dynamicHead.settingsDirPath("")
+                workingDir = this@DynamicChainGenerator.settingsDirPath("")
                 jdkHome = "%teamcity.agent.jvm.java.home%"
             }
         }
@@ -152,11 +132,9 @@ fun Project.dynamicBuildChain(init: DynamicCompositeBuildType.() -> Unit): Dynam
         }
     }
 
-    return dynamicHead
-}
+    project.buildType(generator)
 
-private fun DynamicCompositeBuildType.settingsDirPath(relPath: String): String {
-    if (relPath.isEmpty() || settingsDir.isEmpty()) return relPath
-    if (settingsDir.endsWith("/")) return settingsDir + relPath
-    return "$settingsDir/$relPath"
+    if (id.toString() != System.getenv(DYNAMIC_BUILD_TYPE_ID_ENV_VAR)) return
+
+    generator.settingsModifier = settingsModifier
 }
