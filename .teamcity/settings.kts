@@ -1,6 +1,5 @@
  import dynamic.MatrixBuild
 import dynamic.createBatches
-import dynamic.executeInRuntime
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.pipelines.Pipeline
@@ -31,8 +30,6 @@ version = "2026.1"
 
 project {
 
-    val project = this
-
     buildType {
         id("MainCheck")
 
@@ -43,7 +40,7 @@ project {
             root(DslContext.settingsRoot, "+:.teamcity")
         }
 
-        executeInRuntime(project) {
+        executeInRuntime {
 
             dependencies {
                 snapshot(BuildType {
